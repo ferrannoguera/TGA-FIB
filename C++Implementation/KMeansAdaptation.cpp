@@ -1,5 +1,4 @@
-// Implementation of the KMeans Algorithm
-// reference: http://mnemstudio.org/clustering-k-means-example-1.htm
+// Implementation of the KMeans Algorithm for an easy paralelization
 
 #include <iostream>
 #include <vector>
@@ -9,6 +8,12 @@
 #include <algorithm>
 
 using namespace std;
+
+int total_points, total_values, K, max_iterations;
+
+vector< vector<double> > PointValues; //prviously points from Point Class
+//vector<double> KCentral_values; //previously central_values (Valors de les K's?)
+vector<vector<int> > ClusteringValues; //Assignacion de puntos en K
 
 class Point
 {
@@ -141,13 +146,25 @@ private:
 	vector<Cluster> clusters;
 
 	// return ID of nearest center (uses euclidean distance)
-	int getIDNearestCenter(Point point)
+	int getIDNearestCenter(vector<double> point)
 	{
 		double sum = 0.0, min_dist;
 		int id_cluster_center = 0;
 
+		for (int i = 0; i<ClusteringValues[0].size; ++i){
+			for (int j = 0; j<total_values; ++j) {
+				sum += pow(PointValues[
+			}
+		}
+
+		for(int i = 0; i < total_values; ++i) {
+			sum += pow(ClusteringValues[0]
+		}
+
 		for(int i = 0; i < total_values; i++)
 		{
+			
+
 			sum += pow(clusters[0].getCentralValue(i) -
 					   point.getValue(i), 2.0);
 		}
@@ -198,20 +215,17 @@ public:
 		// pot inclus no posat tots els punts, as far as i see
 		for(int i = 0; i < K; i++)
 		{
-			while(true)
-			{
+			vector<int> indexos;
+			while(true) {
 				int index_point = rand() % total_points;
 
-				if(find(prohibited_indexes.begin(), prohibited_indexes.end(),
-						index_point) == prohibited_indexes.end())
-				{
+				if(find(prohibited_indexes.begin(), prohibited_indexes.end(), index_point) == prohibited_indexes.end()) {
 					prohibited_indexes.push_back(index_point);
-					points[index_point].setCluster(i);
-					Cluster cluster(i, points[index_point]);
-					clusters.push_back(cluster);
+					indexos.push_back(index_point);
 					break;
 				}
 			}
+			ClusteringValues.push_back(indexos);
 		}
 
 		int iter = 1;
@@ -220,9 +234,16 @@ public:
 		{
 			bool done = true;
 
+			for (int i = 0; i < K; ++i) { //id_old_cluster = i
+				for (int j = 0; j < Clustering[i].size(); ++j) { //indexpoint = Clustering[i][j]
+					int id_nearest_center = getIDNearestCenter(PointValues[Clustering[i][j]]);
+			}			
+
 			// associates each point to the nearest center
 			for(int i = 0; i < total_points; i++)
 			{
+				
+				int id_old_cluster = 				
 				int id_old_cluster = points[i].getCluster();
 				int id_nearest_center = getIDNearestCenter(points[i]);
 
@@ -275,6 +296,10 @@ public:
 				for(int p = 0; p < total_values; p++)
 					cout << clusters[i].getPoint(j).getValue(p) << " ";
 
+				string point_name = clusters[i].getPoint(j).getName();
+
+				if(point_name != "")
+					cout << "- " << point_name;
 
 				cout << endl;
 			}
@@ -289,15 +314,44 @@ public:
 	}
 };
 
+void KMeans (int K, int total_points, int total_values, int max_iterations) {
+	if(K > total_points)
+			return;
+
+	vector<int> prohibited_indexes;
+
+	//Haurem de tirar de seed else this manera ens rebentara la fukin boca
+	for(int i = 0; i < K; i++)
+		{
+			while(true)
+			{
+				int index_point = rand() % total_points;
+
+				if(find(prohibited_indexes.begin(), prohibited_indexes.end(),
+						index_point) == prohibited_indexes.end())
+				{
+					prohibited_indexes.push_back(index_point);
+
+					
+					points[index_point].setCluster(i);
+					Cluster cluster(i, points[index_point]);
+					clusters.push_back(cluster);
+					break;
+				}
+			}
+		}
+
+
+}
+
+
 int main(int argc, char *argv[])
 {
 	srand (time(NULL));
 
-	int total_points, total_values, K, max_iterations;
+	
 
 	cin >> total_points >> total_values >> K >> max_iterations;
-
-	vector<Point> points;
 
 	for(int i = 0; i < total_points; i++)
 	{
@@ -309,12 +363,17 @@ int main(int argc, char *argv[])
 			cin >> value;
 			values.push_back(value);
 		}
-		Point p(i, values);
-		points.push_back(p);
+		PointValues.push_back(values);
 	}
-
-	KMeans kmeans(K, total_points, total_values, max_iterations);
-	kmeans.run(points);
+	for (int i = 0; i<PointValues.size(); ++i) {
+		for (int j = 0; j<PointValues[i].size(); ++j) {
+			cout << PointValues[i][j] << " ";
+		}
+		cout << endl;
+	}
+	kmeans(K,total_points, total_values, max_iterations);
+	//KMeans kmeans(K, total_points, total_values, max_iterations);
+	//kmeans.run(points);
 
 	return 0;
 }

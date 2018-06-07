@@ -186,7 +186,7 @@ public:
 		this->max_iterations = max_iterations;
 	}
 
-	void run(vector<Point> & points)
+	__global__ void run(vector<Point> & points)
 	{
 		if(K > total_points)
 			return;
@@ -256,7 +256,7 @@ public:
 
 			if(done == true || iter >= max_iterations)
 			{
-				cout << "Break in iteration " << iter << "\n\n";
+				//cout << "Break in iteration " << iter << "\n\n";
 				break;
 			}
 
@@ -268,36 +268,80 @@ public:
 		{
 			int total_points_cluster =  clusters[i].getTotalPoints();
 
-			cout << "Cluster " << clusters[i].getID() + 1 << endl;
+			//cout << "Cluster " << clusters[i].getID() + 1 << endl;
 			for(int j = 0; j < total_points_cluster; j++)
 			{
-				cout << "Point " << clusters[i].getPoint(j).getID() + 1 << ": ";
+				//cout << "Point " << clusters[i].getPoint(j).getID() + 1 << ": ";
 				for(int p = 0; p < total_values; p++)
-					cout << clusters[i].getPoint(j).getValue(p) << " ";
+					//cout << clusters[i].getPoint(j).getValue(p) << " ";
 
+				string point_name = clusters[i].getPoint(j).getName();
 
-				cout << endl;
+				if(point_name != "")
+					//cout << "- " << point_name;
+
+				//cout << endl;
 			}
 
-			cout << "Cluster values: ";
+			//cout << "Cluster values: ";
 
 			for(int j = 0; j < total_values; j++)
-				cout << clusters[i].getCentralValue(j) << " ";
+				//cout << clusters[i].getCentralValue(j) << " ";
 
-			cout << "\n\n";
+			//cout << "\n\n";
 		}
 	}
 };
 
-int main(int argc, char *argv[])
+__global__ void test(int total_points, int total_values, int K, int max_iterations, int has_name, vector<Point> points)
 {
-	srand (time(NULL));
+	KMeans kmeans(K, total_points, total_values, max_iterations);
+	kmeans.run(points);
+}
 
-	int total_points, total_values, K, max_iterations;
 
-	cin >> total_points >> total_values >> K >> max_iterations;
+
+int main(int argc, char** argv)
+
+{
+  /*unsigned int N;
+  unsigned int numBytes;
+  unsigned int nBlocks, nThreads;
+ 
+  cudaEvent_t E0, E1, E2, E3;
+  float TiempoTotal, TiempoKernel;
+
+  float *h_x, *h_y, *H_y;
+  float *d_x, *d_y;
+
+  N = 1024 * 1024 * 16;
+  nThreads = 1024;
+  nBlocks = N/nThreads;  // Solo funciona bien si N multiplo de nThreads
+  numBytes = N * sizeof(float);
+
+
+  cudaEventCreate(&E0);
+  cudaEventCreate(&E1);
+  cudaEventCreate(&E2);
+  cudaEventCreate(&E3);
+
+  // Obtener Memoria en el host
+  h_x = (float*) malloc(numBytes); 
+  h_y = (float*) malloc(numBytes); 
+  H_y = (float*) malloc(numBytes);*/    // Solo se usa para comprobar el resultado
+
+  // Obtiene Memoria [pinned] en el host
+  //cudaMallocHost((float**)&h_x, numBytes); 
+  //cudaMallocHost((float**)&h_y, numBytes); 
+  //cudaMallocHost((float**)&H_y, numBytes);   // Solo se usa para comprobar el resultado
+
+  // Inicializa los valores
+	int total_points, total_values, K, max_iterations, has_name;
+
+	std::cin >> total_points >> total_values >> K >> max_iterations >> has_name; 
 
 	vector<Point> points;
+	string point_name;
 
 	for(int i = 0; i < total_points; i++)
 	{
@@ -306,15 +350,84 @@ int main(int argc, char *argv[])
 		for(int j = 0; j < total_values; j++)
 		{
 			double value;
-			cin >> value;
+			std::cin >> value;
 			values.push_back(value);
 		}
-		Point p(i, values);
-		points.push_back(p);
+
+		if(has_name)
+		{
+			std::cin >> point_name;
+			Point p(i, values, point_name);
+			points.push_back(p);
+		}
+		else
+		{
+			Point p(i, values);
+			points.push_back(p);
+		}
 	}
+ 
+  /*cudaEventRecord(E0, 0);
+  cudaEventSynchronize(E0);
+ 
+  // Obtener Memoria en el device
+  cudaMalloc((float**)&d_x, numBytes); 
+  cudaMalloc((float**)&d_y, numBytes); 
+  CheckCudaError((char *) "Obtener Memoria en el device", __LINE__); 
 
-	KMeans kmeans(K, total_points, total_values, max_iterations);
-	kmeans.run(points);
+  // Copiar datos desde el host en el device 
+  cudaMemcpy(d_x, h_x, numBytes, cudaMemcpyHostToDevice);
+  cudaMemcpy(d_y, h_y, numBytes, cudaMemcpyHostToDevice);
+  CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
 
-	return 0;
+  cudaEventRecord(E1, 0);
+  cudaEventSynchronize(E1);*/
+
+
+
+  // Ejecutar el kernel
+  test<<<1, 1>>>(total_points, total_values, K, max_iterations, has_name, points);
+  /*CheckCudaError((char *) "Invocar Kernel", __LINE__);
+
+  cudaEventRecord(E2, 0);
+  cudaEventSynchronize(E2);
+
+  // Obtener el resultado desde el host 
+  // Guardamos el resultado en H_y para poder comprobar el resultado
+  cudaMemcpy(H_y, d_y, numBytes, cudaMemcpyDeviceToHost); 
+  CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
+
+  // Liberar Memoria del device 
+  cudaFree(d_x); cudaFree(d_y);
+
+  cudaDeviceSynchronize();
+
+  cudaEventRecord(E3, 0);
+  cudaEventSynchronize(E3);
+
+  cudaEventElapsedTime(&TiempoTotal,  E0, E3);
+  cudaEventElapsedTime(&TiempoKernel, E1, E2);
+ 
+  printf("nThreads: %d\n", nThreads);
+  printf("nBlocks: %d\n", nBlocks);
+
+  printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
+  printf("Tiempo Kernel: %4.6f milseg\n", TiempoKernel);
+
+  cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);*/
 }
+
+
+void CheckCudaError(char sms[], int line) {
+  cudaError_t error;
+ 
+  error = cudaGetLastError();
+  if (error) {
+    printf("(ERROR) %s - %s in %s at line %d\n", sms, cudaGetErrorString(error), __FILE__, line);
+    exit(EXIT_FAILURE);
+  }
+
+
+}
+
+
