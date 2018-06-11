@@ -120,6 +120,7 @@ void kmeans(int K, int total_points, int total_values, int max_iterations) {
 	// choose K distinct values for the centers of the clusters
 	// Sense cap mena de criteri, va posant punts als clusters fins que repeteix algun punt
 	// pot inclus no posat tots els punts, as far as i see
+	srand(1);
 	for(int i = 0; i < K; i++)
 	{
 		while(true)
