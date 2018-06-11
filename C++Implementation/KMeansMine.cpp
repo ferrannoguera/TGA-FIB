@@ -114,15 +114,31 @@ void updateCentroids(int total_values){
 	}*/
 }
 
-void kmeans(int K, int total_points, int total_values, int max_iterations,
-			int max_point, int min_point) {
-	for (int i = 0; i < K; ++i) {
-		vector<double> InitKPoints;
-		for (int j = 0; j < total_values; ++j){
-			InitKPoints.push_back(rand() % max_point + min_point);
+void kmeans(int K, int total_points, int total_values, int max_iterations) {
+	vector<int> prohibited_indexes;
+
+	// choose K distinct values for the centers of the clusters
+	// Sense cap mena de criteri, va posant punts als clusters fins que repeteix algun punt
+	// pot inclus no posat tots els punts, as far as i see
+	for(int i = 0; i < K; i++)
+	{
+		while(true)
+		{
+			int index_point = rand() % total_points;
+
+			if(find(prohibited_indexes.begin(), prohibited_indexes.end(),
+					index_point) == prohibited_indexes.end())
+			{
+				prohibited_indexes.push_back(index_point);
+				ClusteringValues[index_point] = i;
+				break;
+			}
 		}
-		KCentroids.push_back(InitKPoints);
 	}
+	KCentroids = vector<vector<double> >(K, vector<double>(total_values));
+	//printClusters();
+	updateCentroids(total_values);
+		
 	/*for (int i = 0; i < K; ++i) {
 		cout << "KCentroid: " << i << endl;
 		for (int j = 0; j<KCentroids[i].size(); ++j) {
@@ -153,7 +169,6 @@ int main() {
 			cout << "INPUT ERROR";
 			
 	ClusteringValues.resize(total_points);
-	double max_point, min_point;
 	for(int i = 0; i < total_points; i++) {
 		vector<double> values;
 
@@ -161,14 +176,6 @@ int main() {
 		{
 			double value;
 			cin >> value;
-			if (i == 0 && j == 0) {
-				max_point = value;
-				min_point = value;
-			}
-			else {
-				if(max_point < value) max_point = value;
-				if(min_point > value) min_point = value;
-			}
 			values.push_back(value);
 		}
 		PointValues.push_back(values);
@@ -179,8 +186,5 @@ int main() {
 		}
 		cout << endl;
 	}*/
-	cout << "max_point: " << max_point << endl;
-	cout << "min_point: " << min_point << endl;
-	kmeans(K,total_points, total_values, max_iterations, 
-		max_point, min_point);	
+	kmeans(K,total_points, total_values, max_iterations);	
 }
