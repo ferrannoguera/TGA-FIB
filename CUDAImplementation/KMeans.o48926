@@ -1,0 +1,12 @@
+DATASET 3
+Tiempo UpdateCentroids function: 0.852288 milseg
+Tiempo UpdatePointDistances function: 8.430976 milseg
+Tiempo Global: 115.209923 milseg
+DATASET 2
+Tiempo UpdateCentroids function: 0.074144 milseg
+Tiempo UpdatePointDistances function: 0.017824 milseg
+Tiempo Global: 1.277472 milseg
+DATASET 1
+Tiempo UpdateCentroids function: 0.016032 milseg
+Tiempo UpdatePointDistances function: 0.010176 milseg
+Tiempo Global: 0.179008 milseg

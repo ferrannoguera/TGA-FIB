@@ -9,9 +9,9 @@ export PATH=/Soft/cuda/8.0.61/bin:$PATH
 #$ -N KMeans 
 # Cambiar el shell
 #$ -S /bin/bash
-echo "DATASET 3"
-./KMeans.exe < ../datasets/dataset3.txt
-echo "DATASET 2"
-./KMeans.exe < ../datasets/dataset2.txt
 echo "DATASET 1"
 ./KMeans.exe < ../datasets/dataset1.txt
+echo "DATASET 2"
+./KMeans.exe < ../datasets/dataset2.txt
+echo "DATASET 3"
+./KMeans.exe < ../datasets/dataset3.txt
