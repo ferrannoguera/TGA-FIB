@@ -1,0 +1,61 @@
+DATASET 3
+PRUEVA 1:
+ENTRA A PRINTCLUISETERS
+ALGO NONO
+7 2 2
+Point 0: 1 1 is located on cluster: 2.32249e-310
+Point 1: 1.5 2 is located on cluster: 0
+Point 2: 3 4 is located on cluster: 0
+Point 3: 5 7 is located on cluster: 0
+Point 4: 3.5 5 is located on cluster: 1
+Point 5: 4.5 5 is located on cluster: 0
+Point 6: 3.5 4.5 is located on cluster: 0
+SURT DE PRINTLCUSTERS
+PRUEVA 2:
+ENTRA A PRINTCLUISETERS
+ALGO NONO
+7 2 2
+Point 0: 1 1 is located on cluster: 2.35504e-310
+Point 1: 1.5 2 is located on cluster: 0
+Point 2: 3 4 is located on cluster: 0
+Point 3: 5 7 is located on cluster: 0
+Point 4: 3.5 5 is located on cluster: 1
+Point 5: 4.5 5 is located on cluster: 0
+Point 6: 3.5 4.5 is located on cluster: 0
+SURT DE PRINTLCUSTERS
+PRUEVA 3:
+ENTRA A PRINTCLUISETERS
+ALGO NONO
+7 2 2
+Point 0: 1 1 is located on cluster: 2.35204e-310
+Point 1: 1.5 2 is located on cluster: 0
+Point 2: 3 4 is located on cluster: 0
+Point 3: 5 7 is located on cluster: 0
+Point 4: 3.5 5 is located on cluster: 1
+Point 5: 4.5 5 is located on cluster: 0
+Point 6: 3.5 4.5 is located on cluster: 0
+SURT DE PRINTLCUSTERS
+PRUEVA 4:
+ENTRA A PRINTCLUISETERS
+ALGO NONO
+7 2 2
+Point 0: 1 1 is located on cluster: 2.3721e-310
+Point 1: 1.5 2 is located on cluster: 0
+Point 2: 3 4 is located on cluster: 0
+Point 3: 5 7 is located on cluster: 0
+Point 4: 3.5 5 is located on cluster: 1
+Point 5: 4.5 5 is located on cluster: 0
+Point 6: 3.5 4.5 is located on cluster: 0
+SURT DE PRINTLCUSTERS
+PRUEVA 5:
+ENTRA A PRINTCLUISETERS
+ALGO NONO
+7 2 2
+Point 0: 1 1 is located on cluster: 2.31995e-310
+Point 1: 1.5 2 is located on cluster: 0
+Point 2: 3 4 is located on cluster: 0
+Point 3: 5 7 is located on cluster: 0
+Point 4: 3.5 5 is located on cluster: 1
+Point 5: 4.5 5 is located on cluster: 0
+Point 6: 3.5 4.5 is located on cluster: 0
+SURT DE PRINTLCUSTERS
