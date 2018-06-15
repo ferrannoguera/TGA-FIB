@@ -14,42 +14,29 @@ using namespace std;
 //vector<int> ClusteringValues;
 unsigned int total_points, total_values, K, max_iterations;
 
-#define THREADS 32
+#define THREADS 8
+
 
 
 __global__ void updateCentroids(double *PointValues, double *KCentroids, 
-										 double *ClusteringValues){
+								double *ClusteringValues, int total_points, int total_values, int K){
+	
+	int kevaluada = blockIdx.y * blockDim.y + threadIdx.y;
+	
 	int j = blockIdx.x * blockDim.x + threadIdx.x;
 	int ind = j;
+	
+	float tmp = 0.0;
+	int count = 0;
 	if (j < total_values) {
-		
-		
-		
-	}
-				
-	vector<vector<double> > updatingK;
-	updatingK.resize(KCentroids.size());
-	for (int i = 0; i<ClusteringValues.size(); ++i) {
-		vector<double> AddingK;
-		for (int j = 0; j<PointValues[i].size(); ++j) {
-			AddingK.push_back(PointValues[i][j]);//AddingK.push_back(PointValues[i][j]);
-		}
-		for (int j = 0; j<AddingK.size(); ++j) {
-			updatingK[ClusteringValues[i]].push_back(AddingK[j]);
-		}
-	}
-	vector<double> KUpdated(total_values,0);
-	for (int i = 0; i<updatingK.size(); ++i) {
-		vector<double> KUpdated(total_values,0);
-		for (int j = 0; j<updatingK[i].size(); ++j) {
-			KUpdated[j%total_values] += updatingK[i][j];
-		}
-		if (updatingK[i].size() > 0) {
-			for (int j = 0; j<KUpdated.size(); ++j) {
-				KUpdated[j] /= (updatingK[i].size()/total_values);
+
+		for (int i = 0; i<total_points; ++i, ind = ind + total_values) {
+			if (kevaluada == ClusteringValues[i]) {
+				tmp += PointValues[ind];
+				++count;
 			}
-			KCentroids[i] = KUpdated;
 		}
+		KCentroids[kevaluada * j + total_values] = tmp/count;
 	}
 }
 
@@ -68,7 +55,7 @@ int main(int argc, char** argv) {
   unsigned int numBytesPointValues, numBytesKCentroids, 
 							 numBytesClustering;
 							 
-  unsigned int nBlocks, nThreads;
+  unsigned int nBlocksC, nThreadsC;
  
   cudaEvent_t E1, E2, E3, E4, E5;
   
@@ -141,11 +128,11 @@ int main(int argc, char** argv) {
 	
 	
 	// Obtener Memoria en el device
-	cudaMalloc((float**)&d_PointValues, numBytesPointValues); 
+	cudaMalloc((double**)&d_PointValues, numBytesPointValues); 
 	
-	cudaMalloc((float**)&d_KCentroids, numBytesKCentroids); 
+	cudaMalloc((double**)&d_KCentroids, numBytesKCentroids); 
 	
-	cudaMalloc((float**)&d_ClusteringValues, numBytesClustering); 
+	cudaMalloc((double**)&d_ClusteringValues, numBytesClustering); 
 	
 	CheckCudaError((char *) "Obtener Memoria en el device", __LINE__); 
 	
@@ -164,15 +151,18 @@ int main(int argc, char** argv) {
 
 	// Ejecutar el kernel 
 	
-	nThreads = THREADS * THREADS;
+	nThreadsC = THREADS;
 	// nBlocks = Nfil/nThreads;  // Solo funciona bien si Nfil multiplo de nThreads
-	nBlocks = (total_values + nThreads - 1)/nThreads;  // Funciona bien en cualquier caso
+	cout << "nBlocksC: " << (total_values + nThreadsC - 1)/nThreadsC << endl;
+	cout << "total_values: " << total_values << endl;
+	cout << "nThreadsC: " << nThreadsC << endl;
+	nBlocksC = (total_values + nThreadsC - 1)/nThreadsC;  // Funciona bien en cualquier caso
 
-	dim3 dimGridC(nBlocks, 1, 1);
-	dim3 dimBlockC(nThreads, 1, 1);
+	dim3 dimGridC(nBlocksC, 1, 1);
+	dim3 dimBlockC(nThreadsC, K, 1);
 	
 	printf("\n");
-	printf("Kernel por Columnas (total_values)\n");
+	printf("Kernel de su puta madre\n");
 	printf("Dimension Block: %d x %d x %d (%d) threads\n", dimBlockC.x, dimBlockC.y, dimBlockC.z, dimBlockC.x * dimBlockC.y * dimBlockC.z);
 	printf("Dimension Grid: %d x %d x %d (%d) blocks\n", dimGridC.x, dimGridC.y, dimGridC.z, dimGridC.x * dimGridC.y * dimGridC.z);
   
@@ -180,8 +170,9 @@ int main(int argc, char** argv) {
 	cudaEventRecord(E1, 0);
 	cudaEventSynchronize(E1);
 	
-	updateCentroids<<dimGridC,dimBlockC>>(total_values, d_PointValues, d_KCentroids,
-	  							d_ClusteringValues); 
+	updateCentroids<<<dimGridC,dimBlockC>>>(d_PointValues, d_KCentroids,
+	  							d_ClusteringValues, total_points, total_values, K); 
+	CheckCudaError((char *) "Invocar Kernel", __LINE__);
 					
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
@@ -201,9 +192,17 @@ int main(int argc, char** argv) {
 
 
   // Obtener el resultado desde el host 
-  cudaMemcpy(h_ClusteringValues, d_ClusteringValues, numBytesClustering,
-												cudaMemcpyDeviceToHost); 
+	//cudaMemcpy(h_PointValues, d_PointValues, numBytesPointValues,
+	//											cudaMemcpyDeviceToHost);
+	cudaMemcpy(h_KCentroids, d_KCentroids, numBytesKCentroids,
+								cudaMemcpyDeviceToHost);
+	//cudaMemcpy(h_ClusteringValues, d_ClusteringValues, numBytesClustering,
+	//							cudaMemcpyDeviceToHost); 
+								
   CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
+  
+  printClusters(h_PointValues, h_KCentroids, h_ClusteringValues);
+  
 
   // Liberar Memoria del device 
   cudaFree(d_PointValues); cudaFree(d_KCentroids); 
@@ -219,8 +218,6 @@ int main(int argc, char** argv) {
   cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
   cudaEventDestroy(E4); cudaEventDestroy(E5);
  
-  printf("nThreads: %d\n", nThreads);
-  printf("nBlocks: %d\n", nBlocks);
   printf("Tiempo UpdateCentroids function: %4.6f milseg\n", 
 		TiempoUpdateCentroids);
   /*printf("Tiempo UpdatePointDistances function: %4.6f milseg\n", 
@@ -295,14 +292,14 @@ int main(int argc, char** argv) {
 void printClusters(double *PointValues, double *KCentroids, 
 									 double *ClusteringValues) {
 										 
-	/*for (int i = 0; i<K; ++i) {
+	for (int i = 0; i<K; ++i) {
 		cout << "Centroid " << i << ": ";
 		for (int j = 0; j<total_values; ++j) {
 			int ind = i * total_values + j;
 			cout << KCentroids[ind] << " ";
 		}
 		cout << endl;
-	}*/
+	}
 	for (int i = 0; i<total_points; ++i) {
 		cout << "Point " << i << ": ";
 		for (int j = 0; j<total_values; ++j) {

@@ -14,13 +14,16 @@ export PATH=/Soft/cuda/8.0.61/bin:$PATH
 #echo "DATASET 2"
 #./KMeansSeq.exe < ../datasets/dataset2.txt
 echo "DATASET 3"
-echo "PRUEVA 1:"
-./KMeansV1.exe < ../datasets/dataset2.txt
-echo "PRUEVA 2:"
-./KMeansV1.exe < ../datasets/dataset2.txt
-echo "PRUEVA 3:"
-./KMeansV1.exe < ../datasets/dataset2.txt
-echo "PRUEVA 4:"
-./KMeansV1.exe < ../datasets/dataset2.txt
-echo "PRUEVA 5:"
-./KMeansV1.exe < ../datasets/dataset2.txt
+echo "VERSION SEQ: "
+./KMeansSeq.exe < ../datasets/dataset1.txt
+echo " "
+echo "VERSION 1:"
+./KMeansV1.exe < ../datasets/dataset1.txt
+#echo "PRUEVA 2:"
+#./KMeansV1.exe < ../datasets/dataset2.txt
+#echo "PRUEVA 3:"
+#./KMeansV1.exe < ../datasets/dataset2.txt
+#echo "PRUEVA 4:"
+#./KMeansV1.exe < ../datasets/dataset2.txt
+#echo "PRUEVA 5:"
+#./KMeansV1.exe < ../datasets/dataset2.txt

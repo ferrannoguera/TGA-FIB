@@ -74,6 +74,8 @@ int main(int argc, char** argv) {
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
 	
+	printClusters();
+	
 	int counter = 0;
 	cudaEventRecord(E3, 0);
 	cudaEventSynchronize(E3);
