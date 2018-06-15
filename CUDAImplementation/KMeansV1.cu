@@ -161,7 +161,7 @@ int main(int argc, char** argv) {
 
 	// Ejecutar el kernel 
 	
-	nThreadsC = total_values*total_points;
+	nThreadsC = total_values;
 	nBlocksC = (total_values + nThreadsC - 1)/nThreadsC;  // Funciona bien en cualquier caso
 	cout << "nBlocksC: " << (total_values + nThreadsC - 1)/nThreadsC << endl;
 	cout << "total_values: " << total_values << endl;
@@ -182,10 +182,9 @@ int main(int argc, char** argv) {
 	
 	updateCentroids<<<dimGridC,dimBlockC>>>(d_PointValues, d_KCentroids,
 	  							d_ClusteringValues, total_points, total_values, K); 
-	CheckCudaError((char *) "Invocar Kernel", __LINE__);
-					
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
+	//CheckCudaError((char *) "Invocar Kernel", __LINE__);
 	/*int counter = 0;
 	cudaEventRecord(E3, 0);
 	cudaEventSynchronize(E3);
