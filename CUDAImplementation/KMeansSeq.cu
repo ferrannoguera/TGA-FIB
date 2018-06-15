@@ -20,44 +20,19 @@ void updateCentroids(int total_values);
 bool updatePointDistances();
 void CheckCudaError(char sms[], int line);
 
-int main(int argc, char** argv)
+int main(int argc, char** argv) {
 
-{
-  //unsigned int N;
-  //unsigned int numBytes;
-  //unsigned int nBlocks, nThreads;
  
-  cudaEvent_t E0, E1, E2, E3, E4, E5;
+  cudaEvent_t E1, E2, E3, E4, E5;
   float TiempoTotal, TiempoUpdateCentroids, TiempoUpdatePointDistances;
 
-  //float *h_x, *h_y, *H_y;
-  //float *d_x, *d_y;
-
-  //N = 1024 * 1024 * 16;
-  //nThreads = 1024;
-  //nBlocks = N/nThreads;  // Solo funciona bien si N multiplo de nThreads
-  //numBytes = N * sizeof(float);
-
-
-  cudaEventCreate(&E0);
   cudaEventCreate(&E1);
   cudaEventCreate(&E2);
   cudaEventCreate(&E3);
   cudaEventCreate(&E4);
   cudaEventCreate(&E5);
-
-  // Obtener Memoria en el host
-  //h_x = (float*) malloc(numBytes); 
-  //h_y = (float*) malloc(numBytes); 
-  //H_y = (float*) malloc(numBytes);    // Solo se usa para comprobar el resultado
-
-  // Obtiene Memoria [pinned] en el host
-  //cudaMallocHost((float**)&h_x, numBytes); 
-  //cudaMallocHost((float**)&h_y, numBytes); 
-  //cudaMallocHost((float**)&H_y, numBytes);   // Solo se usa para comprobar el resultado
   
-  cudaEventRecord(E0, 0);
-  cudaEventSynchronize(E0);
+  
   int total_points, total_values, K, max_iterations;
 	cin >> total_points >> total_values >> K >> max_iterations;
 	if(K > total_points)
@@ -75,7 +50,6 @@ int main(int argc, char** argv)
 		}
 		PointValues.push_back(values);
 	}
-	//kmeans(K,total_points, total_values, max_iterations);
 	vector<int> prohibited_indexes;
 	srand(1);
 	for(int i = 0; i < K; i++)
@@ -94,16 +68,15 @@ int main(int argc, char** argv)
 		}
 	}
 	KCentroids = vector<vector<double> >(K, vector<double>(total_values));
-	  // Ejecutar el kernel 
 	cudaEventRecord(E1, 0);
 	cudaEventSynchronize(E1);
 	updateCentroids(total_values); 
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
-	//updateCentroids<<<1, 1>>>(total_values);
-	//CheckCudaError((char *) "Invocar Kernel", __LINE__);
 	
-	int counter = 0;
+	printClusters();
+	
+	/*int counter = 0;
 	cudaEventRecord(E3, 0);
 	cudaEventSynchronize(E3);
 	bool yeray = updatePointDistances();
@@ -117,63 +90,34 @@ int main(int argc, char** argv)
 	cout << "LLAMADAS A UPDATECENTROIDS: " << counter << endl;
 	cout << "LLAMADAS A UPDATEPOINTDISTANCES: " << counter+1 << endl;
 	cudaEventRecord(E5, 0);
-	cudaEventSynchronize(E5);
- 
- 
-  // Obtener Memoria en el device
-  //cudaMalloc((float**)&d_x, numBytes); 
-  //cudaMalloc((float**)&d_y, numBytes); 
-  //CheckCudaError((char *) "Obtener Memoria en el device", __LINE__); 
-
-  // Copiar datos desde el host en el device 
-  //cudaMemcpy(d_x, h_x, numBytes, cudaMemcpyHostToDevice);
-  //cudaMemcpy(d_y, h_y, numBytes, cudaMemcpyHostToDevice);
-  //CheckCudaError((char *) "Copiar Datos Host --> Device", __LINE__);
-
-
-
-
-
-  //cudaEventRecord(E2, 0);
-  //cudaEventSynchronize(E2);
-
-  // Obtener el resultado desde el host 
-  // Guardamos el resultado en H_y para poder comprobar el resultado
-  //cudaMemcpy(H_y, d_y, numBytes, cudaMemcpyDeviceToHost); 
-  //CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
-
-  // Liberar Memoria del device 
-  //cudaFree(d_x); cudaFree(d_y);
-
-  //cudaDeviceSynchronize();
-
-  //cudaEventRecord(E3, 0);
-  //cudaEventSynchronize(E3);
+	cudaEventSynchronize(E5);*/
 
 
   cudaEventElapsedTime(&TiempoUpdateCentroids, E1, E2);
-  cudaEventElapsedTime(&TiempoUpdatePointDistances, E3, E4);
-  cudaEventElapsedTime(&TiempoTotal,  E0, E5);
- 
-  //printf("nThreads: %d\n", nThreads);
-  //printf("nBlocks: %d\n", nBlocks);
+  //cudaEventElapsedTime(&TiempoUpdatePointDistances, E3, E4);
+  //cudaEventElapsedTime(&TiempoTotal,  E1, E5);
+
   printf("Tiempo UpdateCentroids function: %4.6f milseg\n", 
 		TiempoUpdateCentroids);
-  printf("Tiempo UpdatePointDistances function: %4.6f milseg\n", 
-		TiempoUpdatePointDistances);
-  printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
+  //printf("Tiempo UpdatePointDistances function: %4.6f milseg\n", 
+	//	TiempoUpdatePointDistances);
+  //printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
 
-  //cudaEventDestroy(E0); cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
+  cudaEventDestroy(E1); 
+  cudaEventDestroy(E2); cudaEventDestroy(E3);
+  cudaEventDestroy(E4); cudaEventDestroy(E5);
 
 }
 
-
+//Updatea la distancia de los puntos con las nuevas K's (si hay algun
+//cambio retorna true, else false
 bool updatePointDistances(){
 	double sum, min_dist;
 	int min_k;
 	bool change = false;
 	for (int i = 0; i<PointValues.size(); ++i) {
-		min_dist = 0.0;
+		min_dist =
+		 0.0;
 		for (int j = 0; j<KCentroids.size(); ++j) {
 			sum = 0.0;
 			for (int k = 0; k<PointValues[i].size(); ++k) {
@@ -197,6 +141,8 @@ bool updatePointDistances(){
 	return change;
 }
 
+//Updatea los nuevos valores de K segun los cambios que ha habido en
+//la assignacion de puntos
 void updateCentroids(int total_values){
 	vector<vector<double> > updatingK;
 	updatingK.resize(KCentroids.size());
