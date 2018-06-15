@@ -31,12 +31,14 @@ __global__ void updateCentroids(double *PointValues, double *KCentroids,
 	if (j < total_values) {
 
 		for (int i = 0; i<total_points; ++i, ind = ind + total_values) {
+			//printf("kevaluada: %d \n",kevaluada);
 			if (kevaluada == ClusteringValues[i]) {
 				tmp += PointValues[ind];
 				++count;
 			}
 		}
-		KCentroids[kevaluada * j + total_values] = tmp/count;
+		//printf("tmp: %d \n",tmp);
+		KCentroids[kevaluada * total_values + j] = tmp/count;
 	}
 }
 
@@ -109,7 +111,14 @@ int main(int argc, char** argv) {
 		}
 		
 	}
+	
+	
+	for (int i = 0; i<total_points; ++i) {
+		h_ClusteringValues[i] = 0;
+	}
+	
 	vector<int> prohibited_indexes;
+	
 	srand(1);
 	for(int i = 0; i < K; i++) {
 		while(true)
@@ -119,13 +128,14 @@ int main(int argc, char** argv) {
 			if(find(prohibited_indexes.begin(), prohibited_indexes.end(),
 					index_point) == prohibited_indexes.end())
 			{
+				cout << "index_point: " << index_point << endl;
 				prohibited_indexes.push_back(index_point);
 				h_ClusteringValues[index_point] = i;
 				break;
 			}
 		}
 	}
-	
+
 	
 	// Obtener Memoria en el device
 	cudaMalloc((double**)&d_PointValues, numBytesPointValues); 
@@ -151,12 +161,12 @@ int main(int argc, char** argv) {
 
 	// Ejecutar el kernel 
 	
-	nThreadsC = THREADS;
-	// nBlocks = Nfil/nThreads;  // Solo funciona bien si Nfil multiplo de nThreads
+	nThreadsC = total_values*total_points;
+	nBlocksC = (total_values + nThreadsC - 1)/nThreadsC;  // Funciona bien en cualquier caso
 	cout << "nBlocksC: " << (total_values + nThreadsC - 1)/nThreadsC << endl;
 	cout << "total_values: " << total_values << endl;
 	cout << "nThreadsC: " << nThreadsC << endl;
-	nBlocksC = (total_values + nThreadsC - 1)/nThreadsC;  // Funciona bien en cualquier caso
+	
 
 	dim3 dimGridC(nBlocksC, 1, 1);
 	dim3 dimBlockC(nThreadsC, K, 1);
@@ -199,8 +209,9 @@ int main(int argc, char** argv) {
 	//cudaMemcpy(h_ClusteringValues, d_ClusteringValues, numBytesClustering,
 	//							cudaMemcpyDeviceToHost); 
 								
-  CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
+  //CheckCudaError((char *) "Copiar Datos Device --> Host", __LINE__);
   
+  cout << "AFTER UPDATING CENTROIDS: " << endl;
   printClusters(h_PointValues, h_KCentroids, h_ClusteringValues);
   
 
