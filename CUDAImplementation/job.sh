@@ -9,18 +9,17 @@ export PATH=/Soft/cuda/8.0.61/bin:$PATH
 #$ -N KMeans 
 # Cambiar el shell
 #$ -S /bin/bash
-#echo "DATASET 1"
-#./KMeansSeq.exe < ../datasets/dataset1.txt
+echo "DATASET 1"
+echo "VERSION 1:"
+./KMeansV1.exe < ../datasets/dataset1.txt
+echo "VERSION SEQ: "
+./KMeansSeq.exe < ../datasets/dataset1.txt
+echo " "
+#echo " "
+#echo " "
 #echo "DATASET 2"
+#echo "VERSION SEQ: "
 #./KMeansSeq.exe < ../datasets/dataset2.txt
-echo "DATASET 3"
-echo "PRUEVA 1:"
-./KMeansV1.exe < ../datasets/dataset2.txt
-echo "PRUEVA 2:"
-./KMeansV1.exe < ../datasets/dataset2.txt
-echo "PRUEVA 3:"
-./KMeansV1.exe < ../datasets/dataset2.txt
-echo "PRUEVA 4:"
-./KMeansV1.exe < ../datasets/dataset2.txt
-echo "PRUEVA 5:"
-./KMeansV1.exe < ../datasets/dataset2.txt
+#echo " "
+#echo "VERSION 1:"
+#./KMeansV1.exe < ../datasets/dataset2.txt

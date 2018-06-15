@@ -74,7 +74,9 @@ int main(int argc, char** argv) {
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
 	
-	int counter = 0;
+	printClusters();
+	
+	/*int counter = 0;
 	cudaEventRecord(E3, 0);
 	cudaEventSynchronize(E3);
 	bool yeray = updatePointDistances();
@@ -88,18 +90,18 @@ int main(int argc, char** argv) {
 	cout << "LLAMADAS A UPDATECENTROIDS: " << counter << endl;
 	cout << "LLAMADAS A UPDATEPOINTDISTANCES: " << counter+1 << endl;
 	cudaEventRecord(E5, 0);
-	cudaEventSynchronize(E5);
+	cudaEventSynchronize(E5);*/
 
 
   cudaEventElapsedTime(&TiempoUpdateCentroids, E1, E2);
-  cudaEventElapsedTime(&TiempoUpdatePointDistances, E3, E4);
-  cudaEventElapsedTime(&TiempoTotal,  E1, E5);
+  //cudaEventElapsedTime(&TiempoUpdatePointDistances, E3, E4);
+  //cudaEventElapsedTime(&TiempoTotal,  E1, E5);
 
   printf("Tiempo UpdateCentroids function: %4.6f milseg\n", 
 		TiempoUpdateCentroids);
-  printf("Tiempo UpdatePointDistances function: %4.6f milseg\n", 
-		TiempoUpdatePointDistances);
-  printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
+  //printf("Tiempo UpdatePointDistances function: %4.6f milseg\n", 
+	//	TiempoUpdatePointDistances);
+  //printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
 
   cudaEventDestroy(E1); 
   cudaEventDestroy(E2); cudaEventDestroy(E3);

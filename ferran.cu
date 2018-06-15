@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
 
   double *h_PointValues, *h_KCentroids, *h_ClusteringValues;
   
-  double *d_PointValues, *d_KCentroids, *d_ClusteringValues;
+  double *d_PointValues, *d_KCentroids, *d_ClusteringValues, *d_DistMatrix;
   
   cin >> total_points >> total_values >> K >> max_iterations;
   
@@ -78,6 +78,8 @@ int main(int argc, char** argv) {
   numBytesPointValues = total_points * total_values * sizeof(double);
   
   numBytesClustering = total_points * sizeof(double);
+  
+  numBytesDistMatrix = total_points * K * sizeof(double);
   
 
 	//Declaramos los eventos
@@ -98,6 +100,7 @@ int main(int argc, char** argv) {
   h_KCentroids = (double*) malloc(numBytesKCentroids); 
   
   h_ClusteringValues = (double*) malloc(numBytesClustering);
+  
 
 			
 	//Lectura de los valores
@@ -143,6 +146,8 @@ int main(int argc, char** argv) {
 	cudaMalloc((double**)&d_KCentroids, numBytesKCentroids); 
 	
 	cudaMalloc((double**)&d_ClusteringValues, numBytesClustering); 
+    
+    cudaMalloc((double**)&d_DistMatrix, numBytesDistMatrix);
 	
 	CheckCudaError((char *) "Obtener Memoria en el device", __LINE__); 
 	
@@ -184,6 +189,40 @@ int main(int argc, char** argv) {
 	  							d_ClusteringValues, total_points, total_values, K); 
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
+    
+    //para el calculo de distancias
+    dim3 dimGridY(nBlocksC, nBlocksC, 1);
+	dim3 dimBlockY(nThreadsC, nThreadsC, 1);
+    
+    UDist<<<dimGridY,dimBlockY>>>(total_values, K, total_points, d_DistMatrix, d_PointValues, d_KCentroids);
+    
+    
+    ///calculo de nuevo vecindario
+    
+    dim3 dimGridY2(1, 1, 1);
+	dim3 dimBlockY2(nThreadsY, nThreadsY, 1);
+    
+    unsigned int numJumpBytes = total_points * sizeof(double);
+    
+    int *indexaux = (int*) malloc(total_points*sizeof(int));
+    for(int l = 0; l<total_points; i++){
+        indexaux[i] = i;
+    }
+    
+    bool ferran = true;
+    for(int i = 0; i<K; i++){
+        double *aux = d_DistMatrix+i*numJumpBytes;
+        double *distres = malloc(sizeof(double));
+        int *indexres = malloc(sizeof(int));
+        Kernel04<<<dimGridY2, dimBlockY2>>>(aux, indexaux, indexres, distres);
+        if(ferran & h_ClusteringValues[i] != indexres[0]){
+            farran = false;
+        }
+        h_ClusteringValues[i] = indexres[0];
+    }
+    
+    
+    
 	//CheckCudaError((char *) "Invocar Kernel", __LINE__);
 	/*int counter = 0;
 	cudaEventRecord(E3, 0);
@@ -340,3 +379,102 @@ void CheckCudaError(char sms[], int line) {
 }
 
 
+
+__global__ void Kernel04(double *DK, int *Ind, int *gInd, double *gBD) { //numelem es el numero de threads
+  __shared__ int indexed[NumElem];
+  __shared__ double sDK[NumElem];
+
+  // Cada thread carga 1 elemento desde la memoria global
+  unsigned int tid = threadIdx.x;
+  unsigned int i = blockIdx.x*blockDim.x + threadIdx.x; 
+  sDK[tid] = DK[i];
+  indexed[tid] = Ind[i];
+  __syncthreads();
+  
+  if(tid == 0){
+      if(NumElem%2 == 1){
+          if(sDK[0]>sDK[NumElem-1]){
+            sDK[0] = sDK[NumElem-1];
+            indexed[0] = indexed[NumElem-1];
+          }
+      }
+  }
+  __syncthreads();
+
+  // Hacemos la reduccion en la memoria compartida
+  for (s=blockDim.x/2; s>0; s>>=1) { 
+    if (tid < s){
+        if(sDK[tid]>sDK[tid+s]){
+            sDK[tid] = sDK[tid + s];
+            indexed[tid] = indexed[tid +s];
+        }
+    }
+    __syncthreads();
+  }
+
+
+  // El thread 0 escribe el resultado de este bloque en la memoria global
+  if (tid == 0){
+      gBD[blockIdx.x] = sDK[0];
+      gInd[blockId.x] = indexed[0];
+  }
+
+}
+
+
+
+
+
+
+__global__ void UDist(int dim, int nk, int np, double *DK, double *TV, double *KV){
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    
+    if(row < nk && col < np){
+        double tmp = 0.0;
+        for(int k = 0; k<dim; k++){
+            double aux = KV[row*dim+k] - TV[col*dim+k];
+            tmp += aux*aux;
+        }
+        DK[row*np+col] = sqrt(tmp);
+    }
+}
+
+//2dim/size*k*p
+//2dim*k*p
+__global__ void UDist2(int dim, int nk, int np, double *DK, double *TV, double *KV){
+    __shared__ double sTV[SIZE][dim];//fila completa, una K entera y un P entero x SIZE
+    __shared__ double sKV[SIZE][dim];
+    
+    int bx = blockIdx.x; int tx = threadIdx.x;
+    int by = blockIdx.y; int ty = threadIdx.y;
+    //los #SIZE threads q van a usar la K[N] y la P[M] cargan una parte de ambos, concretamente dim/SIZE valores +1 si no multiplo
+    int row = by * SIZE + ty;
+    int col = bx * SIZE + tx;
+    int indaux = dim/SIZE;
+    //carga paralela de sTV y sKV, t*indaux = particion q le toca
+    for(int l= 0; l<indaux; l++){
+        sTV[tx*dim+ty*indaux+l] = TV[row*dim+ty*indaux+l];
+        sKV[ty*dim+tx*indaux+l] = KV[col*dim+ty*indaux+l];
+    }
+    //carga de las partes no multiplo
+    int check = dim%SIZE;
+    if(check > 0){
+        int actual = tx-ty;
+        actual = actual < 0 ? -actual : actual;
+        if(actual < check){
+            sTV[(tx+1)*dim-check+actual-1] = TV[(row+1)*dim-check+actual-1];//actual-1-check = pos del modulo, siempre q pasemos a fila siguiente
+            sKV[(ty+1)*dim-check+actual-1] = KV[(col+1)*dim-check+actual-1];
+        }
+    }
+    __syncthreads();
+    //calculo
+    if(row < nk && col < np){
+        double tmp = 0.0;
+        for(int k = 0; k<dim; k++){
+            double aux = KV[row*dim+k] - TV[col*dim+k];
+            tmp += aux*aux;
+        }
+        DK[row*np+col] = sqrt(tmp);
+    }
+}
