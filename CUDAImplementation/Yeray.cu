@@ -56,30 +56,41 @@ __global__ void UDist(int dim, int nk, int np, double *DK, double *TV, double *K
     }
 }
 
-__global__ void Kernel04(double *DK, int np, int *Ind, double *gBD, int dInd) { //numelem es el numero de threads// numde k
+__global__ void Kernel04(double *DK, int *Ind, int *gInd, double *gBD, int tdk) { //numelem es el numero de threads// optimo = numde k
   __shared__ int indexed[THREADS];
   __shared__ double sDK[THREADS];
 
   // Cada thread carga 1 elemento desde la memoria global
   unsigned int tid = threadIdx.x;
-  unsigned int i = blockIdx.x*blockDim.x + threadIdx.x; 
-  sDK[tid] = DK[dInd+i*np];
+  unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
+  if(i < tdk){
+    sDK[tid] = DK[i];
+    indexed[tid] = Ind[i];
+    __syncthreads();
   
-  indexed[tid] = Ind[i];
-  __syncthreads();
-  
-  if(tid == 0){
-      if(THREADS%2 == 1){
-          if(sDK[0]>sDK[THREADS-1]){
-            sDK[0] = sDK[THREADS-1];
-            indexed[0] = indexed[THREADS-1];
-          }
-      }
+    if(tid == 0){
+        if(THREADS%2 == 1){
+            if(sDK[0]>sDK[THREADS-1]){
+                sDK[0] = sDK[THREADS-1];
+                indexed[0] = indexed[THREADS-1];
+            }
+        }
+    }
+    __syncthreads();
   }
-  __syncthreads();
 
   // Hacemos la reduccion en la memoria compartida
-  for (int s=blockDim.x/2; s>0; s>>=1) { 
+  int s = blockDim.x*(blockIdx.x+1)*THREADS <= tdk ? blockDim.x/2 : (tdk%blockDim.x)/2;
+  for (s; s>0; s>>=1) {
+    
+    if(tid == 0){
+        if(s%2==1){
+            if(sDK[0]>sDK[2*s+1]){
+                sDK[0] = sDK[2*s+1];
+                indexed[0] = indexed[2*s+1];
+            }
+        }
+    }
     if (tid < s){
         if(sDK[tid]>sDK[tid+s]){
             sDK[tid] = sDK[tid + s];
@@ -346,9 +357,6 @@ int main(int argc, char** argv) {
 	/* YERAY THINGS
   
   
-	
-	cudaMemcpy(h_DistMatrix, d_DistMatrix, numBytesKCentroids,
-								cudaMemcpyDeviceToHost);
     
     ///calculo de nuevo vecindario
     
@@ -357,21 +365,78 @@ int main(int argc, char** argv) {
     
     unsigned int numJumpBytes = total_points * sizeof(double);
     
-    int *indexaux = (int*) malloc(total_points*sizeof(int));
-    for(int l = 0; l<total_points; l++){
-        indexaux[l] = l;
-    }
+    int *indexaux = (int*) malloc(K*sizeof(int));
+    //for(int l = 0; l<K; l++){
+    //    indexaux[l] = l;
+    //}
+    
+    //numblocks es la dim.x del grid
+    
+    double *h_distres = (double*) malloc(numblocks*sizeof(double));
+    int *h_indexres = (int*) malloc(numblocks*sizeof(int));
+    double h_*aux = (double*) malloc(K*(double));
+    
+    double *d_disres, *d_aux;
+    int *d_indexres;
+    
+    cudaMalloc((double**)&d_disres, numblocks*sizeof(double)); 
+	
+	//cudaMalloc((int**)&d_indexres, numblocks*sizeof(int));
+	
+	cudaMalloc((double**)&d_aux, K*sizeof(double));
+	
+	
     
     bool ferran = true;
-    for(int i = 0; i<K; i++){
-        double *aux = d_DistMatrix+i;
-        double *distres = (double*) malloc(sizeof(double));
-        int *indexres = (int*) malloc(sizeof(int));;
-        Kernel04<<<dimGridY2, dimBlockY2>>>(aux, indexaux, i, distres);
-        if(ferran & h_ClusteringValues[i] != indexres[0]){
+    for(int i = 0; i<total_points; i++){
+        //1º iter
+        
+        //carga vector de indices inicial
+        //int *indexaux = (int*) malloc(K*sizeof(int));
+        for(int l = 0; l<K; l++){
+            h_indexaux[l] = l;
+        }
+        //carga el vector de distancias inicial
+        //double *aux = (double*) malloc(K*(double));
+        for(int kk = 0; kk<K; kk++){
+            h_aux[kk] = h_DistMatrix[kk*total_points+i];
+        }
+        
+        //pasa a device mem
+        
+        cudaMemcpy(d_aux, h_aux, K*sizeof(double), cudaMemcpyHostToDevice);
+        cudaMemcpy(d_indexaux, h_indexaux, K*sizeof(double), cudaMemcpyHostToDevice);
+        
+        
+        //reduccion solo funciona en dim.x
+        Kernel04<<<dimGridY2, dimBlockY2>>>(d_aux, d_indexaux, d_indexaux, d_aux, K);
+        
+        cudaMemcpy(h_aux, d_aux, grid.x*sizeof(double), cudaMemcpyDeviceToHost);//grid.x = numblocks
+        cudaMemcpy(h_indexaux, d_indexaux, grid.x*sizeof(int), cudaMemcpyDeviceToHost);
+        
+        
+        
+        ///16 = numtheards.x
+        int hf = numblocks/16;
+        hf += numblocks%16 == 0 ? 0 : 1;
+        while(hf>1){
+            cudaMemcpy(d_aux, h_aux, hf*sizeof(double), cudaMemcpyHostToDevice);//hf = #result de la redux anterior
+            cudaMemcpy(d_indexaux, h_indexaux, hf*sizeof(double), cudaMemcpyHostToDevice);
+            
+            
+            Kernel04<<<hfx1x1, dimBlockY2>>>(d_aux, d_indexaux, d_indexaux, d_aux, hf);
+            
+            
+            hf = hf/16;//16 = num threads;
+            hf += numblocks%16 == 0 ? 0 : 1;
+            
+            cudaMemcpy(d_aux, h_aux, hf*sizeof(double), cudaMemcpyHostToDevice);//grid.x = numblocks
+            cudaMemcpy(d_indexaux, h_indexaux, hf*sizeof(int), cudaMemcpyHostToDevice);
+        }
+        if(ferran & h_ClusteringValues[i] != h_indexres[0]){
             ferran = false;
         }
-        h_ClusteringValues[i] = indexres[0];
+        h_ClusteringValues[i] = h_indexres[0];
     }*/
     
   
