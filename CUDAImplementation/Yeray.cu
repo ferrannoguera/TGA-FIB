@@ -14,7 +14,7 @@ using namespace std;
 //vector<int> ClusteringValues;
 unsigned int total_points, total_values, K, max_iterations;
 
-#define THREADS 16
+#define THREADS 1024
 
 
 
@@ -56,14 +56,15 @@ __global__ void UDist(int dim, int nk, int np, double *DK, double *TV, double *K
     }
 }
 
-__global__ void Kernel04(double *DK, int *Ind, int *gInd, double *gBD) { //numelem es el numero de threads
+__global__ void Kernel04(double *DK, int np, int *Ind, double *gBD, int dInd) { //numelem es el numero de threads// numde k
   __shared__ int indexed[THREADS];
   __shared__ double sDK[THREADS];
 
   // Cada thread carga 1 elemento desde la memoria global
   unsigned int tid = threadIdx.x;
   unsigned int i = blockIdx.x*blockDim.x + threadIdx.x; 
-  sDK[tid] = DK[i];
+  sDK[tid] = DK[dInd+i*np];
+  
   indexed[tid] = Ind[i];
   __syncthreads();
   
@@ -95,7 +96,7 @@ __global__ void Kernel04(double *DK, int *Ind, int *gInd, double *gBD) { //numel
       gInd[blockIdx.x] = indexed[0];
   }
 
-}
+}*/
 
 
 void printClusters(double *PointValues, double *KCentroids, 
@@ -292,8 +293,8 @@ int main(int argc, char** argv) {
 
     
     //para el calculo de distancias
-    nThreadsYeray = THREADS*THREADS;
-    nBlocksYeray = (total_values + nThreadsYeray - 1)/nThreadsYeray;
+    nThreadsYeray = 16;
+    nBlocksYeray = 16;
 
     
     dim3 dimGridY(nBlocksYeray, nBlocksYeray, 1);
@@ -363,10 +364,10 @@ int main(int argc, char** argv) {
     
     bool ferran = true;
     for(int i = 0; i<K; i++){
-        double *aux = d_DistMatrix+i*numJumpBytes;
+        double *aux = d_DistMatrix+i;
         double *distres = (double*) malloc(sizeof(double));
         int *indexres = (int*) malloc(sizeof(int));;
-        Kernel04<<<dimGridY2, dimBlockY2>>>(aux, indexaux, indexres, distres);
+        Kernel04<<<dimGridY2, dimBlockY2>>>(aux, indexaux, i, distres);
         if(ferran & h_ClusteringValues[i] != indexres[0]){
             ferran = false;
         }
@@ -386,16 +387,18 @@ int main(int argc, char** argv) {
   cudaEventElapsedTime(&TiempoUpdateCentroids, E1, E2);
   cudaEventElapsedTime(&TiempoUpdatePointDistances, E3, E4);
   //cudaEventElapsedTime(&TiempoTotal,  E1, E5);
-  
-  cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
-  cudaEventDestroy(E4); cudaEventDestroy(E5);
+ 
  
   printf("Tiempo UpdateCentroids function: %4.6f milseg\n", 
 		TiempoUpdateCentroids);
   printf("Tiempo UpdatePointDistances function: %4.6f milseg\n", 
 		TiempoUpdatePointDistances);
  /* printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);*/
-  
+ 
+ 
+	cudaEventDestroy(E1); cudaEventDestroy(E2); cudaEventDestroy(E3);
+  cudaEventDestroy(E4); cudaEventDestroy(E5);
+   
 
   free(h_PointValues); free(h_KCentroids); free(h_ClusteringValues);
   free(h_DistMatrix);
