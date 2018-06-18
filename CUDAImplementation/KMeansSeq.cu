@@ -5,19 +5,63 @@
 #include <vector>
 #include <math.h>
 #include <stdlib.h>
-#include <time.h>
+#include <sys/times.h>
+#include <sys/resource.h>
 #include <algorithm>
 using namespace std;
 
 vector< vector<double> > PointValues; 
 vector< vector<double> > KCentroids;
+vector< vector<double> > KPDist;
 vector<int> ClusteringValues;
 
 
 
 void printClusters();
-void updateCentroids(int total_values);
+
+float GetTime(void)        {
+  struct timeval tim;
+  struct rusage ru;
+  getrusage(RUSAGE_SELF, &ru);
+  tim=ru.ru_utime;
+  return ((double)tim.tv_sec + (double)tim.tv_usec / 1000000.0)*1000.0;
+}
+
+
+//Updatea los nuevos valores de K segun los cambios que ha habido en
+//la assignacion de puntos
+void updateCentroids(int total_values){
+	vector<vector<int> > updatingK;
+	updatingK.resize(KCentroids.size());
+	for (int i = 0; i<ClusteringValues.size(); ++i) {
+		updatingK[ClusteringValues[i]].push_back(i);
+	}
+	
+	for (int i = 0; i<KCentroids.size(); ++i) {
+		for (int j = 0; j<total_values; ++j) {
+			KCentroids[i][j] = 0;
+		}
+	}
+	
+	
+	for (int i = 0; i<updatingK.size(); ++i) {
+		for (int j = 0; j<updatingK[i].size(); ++j) {
+			for (int k = 0; k < PointValues[updatingK[i][j]].size(); ++k) {
+				KCentroids[i][k] += PointValues[updatingK[i][j]][k];
+			}
+		}
+	}
+	
+	for (int i = 0; i<KCentroids.size(); ++i) {
+		for (int j = 0; j<KCentroids[i].size(); ++j) {
+			KCentroids[i][j] /= updatingK[i].size();
+		}
+	}
+}
+
 bool updatePointDistances();
+bool updateNeighborhood();
+void updateDist();
 void CheckCudaError(char sms[], int line);
 
 int main(int argc, char** argv) {
@@ -67,45 +111,50 @@ int main(int argc, char** argv) {
 			}
 		}
 	}
-	KCentroids = vector<vector<double> >(K, vector<double>(total_values));
 	cudaEventRecord(E1, 0);
 	cudaEventSynchronize(E1);
+	KCentroids = vector<vector<double> >(K, vector<double>(total_values));
+	KPDist = vector<vector<double> >(K, vector<double>(total_points));
 	updateCentroids(total_values); 
 	cudaEventRecord(E2, 0);
 	cudaEventSynchronize(E2);
 	
+	
 	printClusters();
 	
-	/*int counter = 0;
+	int counter = 0;
 	cudaEventRecord(E3, 0);
 	cudaEventSynchronize(E3);
-	bool yeray = updatePointDistances();
+	updateDist();
+	bool yeray = updateNeighborhood();
 	cudaEventRecord(E4, 0);
 	cudaEventSynchronize(E4);
 	while (yeray and counter <= max_iterations) {
 		++counter;
 		updateCentroids(total_values);
-		yeray = updatePointDistances();
+		updateDist();
+		yeray = updateNeighborhood();
+
 	}
 	cout << "LLAMADAS A UPDATECENTROIDS: " << counter << endl;
 	cout << "LLAMADAS A UPDATEPOINTDISTANCES: " << counter+1 << endl;
 	cudaEventRecord(E5, 0);
-	cudaEventSynchronize(E5);*/
+	cudaEventSynchronize(E5);
 
 
   cudaEventElapsedTime(&TiempoUpdateCentroids, E1, E2);
-  //cudaEventElapsedTime(&TiempoUpdatePointDistances, E3, E4);
-  //cudaEventElapsedTime(&TiempoTotal,  E1, E5);
-
-  printf("Tiempo UpdateCentroids function: %4.6f milseg\n", 
-		TiempoUpdateCentroids);
-  //printf("Tiempo UpdatePointDistances function: %4.6f milseg\n", 
-	//	TiempoUpdatePointDistances);
-  //printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
+  cudaEventElapsedTime(&TiempoUpdatePointDistances, E3, E4);
+  cudaEventElapsedTime(&TiempoTotal,  E1, E5);
+  
+	printf("Tiempo UpdateCentroids: %4.6f milseg\n", TiempoUpdateCentroids);
+	printf("Tiempo UpdatePointDistances function: %4.6f milseg\n", 
+		TiempoUpdatePointDistances);
+	printf("Tiempo Global: %4.6f milseg\n", TiempoTotal);
 
   cudaEventDestroy(E1); 
   cudaEventDestroy(E2); cudaEventDestroy(E3);
   cudaEventDestroy(E4); cudaEventDestroy(E5);
+ 
 
 }
 
@@ -141,35 +190,37 @@ bool updatePointDistances(){
 	return change;
 }
 
-//Updatea los nuevos valores de K segun los cambios que ha habido en
-//la assignacion de puntos
-void updateCentroids(int total_values){
-	vector<vector<double> > updatingK;
-	updatingK.resize(KCentroids.size());
-	for (int i = 0; i<ClusteringValues.size(); ++i) {
-		vector<double> AddingK;
-		for (int j = 0; j<PointValues[i].size(); ++j) {
-			AddingK.push_back(PointValues[i][j]);
-		}
-		for (int j = 0; j<AddingK.size(); ++j) {
-			updatingK[ClusteringValues[i]].push_back(AddingK[j]);
-		}
-	}
-	vector<double> KUpdated(total_values,0);
-	for (int i = 0; i<updatingK.size(); ++i) {
-		vector<double> KUpdated(total_values,0);
-		for (int j = 0; j<updatingK[i].size(); ++j) {
-			KUpdated[j%total_values] += updatingK[i][j];
-		}
-		if (updatingK[i].size() > 0) {
-			for (int j = 0; j<KUpdated.size(); ++j) {
-				KUpdated[j] /= (updatingK[i].size()/total_values);
+
+void updateDist(){
+	for(int i = 0; i<KPDist.size(); i++){
+		for(int j = 0; j<KPDist[0].size(); j++){
+			double tmp = 0.0;
+			for(int k = 0; k<PointValues.size(); k++){
+				tmp += pow(KCentroids[i][k]-PointValues[j][i], 2.0);
 			}
-			KCentroids[i] = KUpdated;
+			KPDist[i][j] = sqrt(tmp);
 		}
-	}
+	}	
 }
 
+bool updateNeighborhood(){
+	bool ret = false;
+	for(int i = 0; i<KPDist[0].size(); i++){
+		double mini = KPDist[0][i];
+		int ind = 0;
+		for (int j = 1; j<KPDist.size(); ++j){
+			if(KPDist[j][i] < mini){
+				mini = KPDist[j][i];
+				ind = j;
+			}
+		}
+		if(ClusteringValues[i] != ind){
+			ret = true;
+			ClusteringValues[i] = ind;
+		}
+	}	
+	return ret;
+}
 
 void printClusters() {
 	for (int i = 0; i<KCentroids.size(); ++i) {
@@ -178,13 +229,6 @@ void printClusters() {
 			cout << KCentroids[i][j] << " ";
 		}
 		cout << endl;
-	}
-	for (int i = 0; i<PointValues.size(); ++i) {
-		cout << "Point " << i << ": ";
-		for (int j = 0; j<PointValues[i].size(); ++j) {
-			cout << PointValues[i][j] << " ";
-		}
-		cout << "is located on cluster: " << ClusteringValues[i] << endl;
 	}
 }
 
