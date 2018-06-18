@@ -382,56 +382,52 @@ int main(int argc, char** argv) {
 	cudaMalloc((double**)&d_aux, K*sizeof(double));
 	cudaMalloc((double**)&d_indexaux, K*sizeof(double));
 	
-	bool ferran = true;
-	while(ferran and counter <= max_iterations){
-		ferran = true;
-		for(int i = 0; i<total_points; i++){
-			//1º iter
-        
-			//carga vector de indices inicial
-			for(int l = 0; l<K; l++){
-				h_indexaux[l] = l;
-			}
-			//carga el vector de distancias inicial
-			for(int kk = 0; kk<K; kk++){
-				h_aux[kk] = h_DistMatrix[kk*total_points+i];
-			}
-		
-			//pasa a device mem
-			cudaMemcpy(d_aux, h_aux, K*sizeof(double), cudaMemcpyHostToDevice);
-			cudaMemcpy(d_indexaux, h_indexaux, K*sizeof(double), cudaMemcpyHostToDevice);
-
-			//reduccion solo funciona en dim.x
-			Kernel04<<<dimGridY2, dimBlockY2, gridtastic*2*sizeof(double)>>>(d_aux, d_indexaux, d_indexres, d_distres, K);
-        
-			cudaMemcpy(h_aux, d_distres, gridtastic*sizeof(double), cudaMemcpyDeviceToHost);//grid.x = numblocks = THREADS/16
-			cudaMemcpy(h_indexaux, d_indexres, (gridtastic*sizeof(int)), cudaMemcpyDeviceToHost);
-   
-			///16 = numtheards.x
-			int hf = gridtastic/16;
-			hf += gridtastic%16 == 0 ? 0 : 1;
-		
-			while(hf>1){
-				cudaMemcpy(d_aux, h_aux, hf*sizeof(double), cudaMemcpyHostToDevice);//hf = #result de la redux anterior
-				cudaMemcpy(d_indexaux, h_indexaux, hf*sizeof(double), cudaMemcpyHostToDevice);
-				dim3 gridmolona(hf,1,1);
-				dim3 blockmolon(16,1,1);
-				int sig = hf/16;//16 = num threads;
-				sig += hf%16 == 0 ? 0 : 1;
-				Kernel04<<<gridmolona, blockmolon, sig*2*sizeof(double)>>>(d_aux, d_indexaux, d_indexres, d_distres, hf);
-				hf = sig;
-				
-				cudaMemcpy(h_aux, d_distres, hf*sizeof(double), cudaMemcpyDeviceToHost);//grid.x = numblocks
-				cudaMemcpy(h_indexaux, d_indexres, hf*sizeof(int), cudaMemcpyDeviceToHost);
-
-		
-			}
-			if(ferran & h_ClusteringValues[i] != h_indexaux[0]){
-				ferran = false;
-			}
-			h_ClusteringValues[i] = h_indexaux[0];
+	ferran = true;
+	for(int i = 0; i<total_points; i++){
+		//1º iter
+       
+		//carga vector de indices inicial
+		for(int l = 0; l<K; l++){
+			h_indexaux[l] = l;
 		}
+		//carga el vector de distancias inicial
+		for(int kk = 0; kk<K; kk++){
+			h_aux[kk] = h_DistMatrix[kk*total_points+i];
+		}
+	
+		//pasa a device mem
+		cudaMemcpy(d_aux, h_aux, K*sizeof(double), cudaMemcpyHostToDevice);
+		cudaMemcpy(d_indexaux, h_indexaux, K*sizeof(double), cudaMemcpyHostToDevice);
+			//reduccion solo funciona en dim.x
+		Kernel04<<<dimGridY2, dimBlockY2, gridtastic*2*sizeof(double)>>>(d_aux, d_indexaux, d_indexres, d_distres, K);
+       
+		cudaMemcpy(h_aux, d_distres, gridtastic*sizeof(double), cudaMemcpyDeviceToHost);//grid.x = numblocks = THREADS/16
+		cudaMemcpy(h_indexaux, d_indexres, (gridtastic*sizeof(int)), cudaMemcpyDeviceToHost);
+  
+		///16 = numtheards.x
+		int hf = gridtastic/16;
+		hf += gridtastic%16 == 0 ? 0 : 1;
+	
+		while(hf>1){
+			cudaMemcpy(d_aux, h_aux, hf*sizeof(double), cudaMemcpyHostToDevice);//hf = #result de la redux anterior
+			cudaMemcpy(d_indexaux, h_indexaux, hf*sizeof(double), cudaMemcpyHostToDevice);
+			dim3 gridmolona(hf,1,1);
+			dim3 blockmolon(16,1,1);
+			int sig = hf/16;//16 = num threads;
+			sig += hf%16 == 0 ? 0 : 1;
+			Kernel04<<<gridmolona, blockmolon, sig*2*sizeof(double)>>>(d_aux, d_indexaux, d_indexres, d_distres, hf);
+			hf = sig;
+			
+			cudaMemcpy(h_aux, d_distres, hf*sizeof(double), cudaMemcpyDeviceToHost);//grid.x = numblocks
+			cudaMemcpy(h_indexaux, d_indexres, hf*sizeof(int), cudaMemcpyDeviceToHost);
+		
+		}
+		if(ferran & h_ClusteringValues[i] != h_indexaux[0]){
+			ferran = false;
+		}
+		h_ClusteringValues[i] = h_indexaux[0];
 	}
+	///FIN DEL CALCULO DEL NUEVO VECINDARIO
   
 	//printClusters(h_PointValues, h_KCentroids, h_ClusteringValues);
 
